@@ -1,0 +1,42 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# Compiled files
+*.dll
+*.exe
+*.pdb
+*.cache
+
+# JetBrains Rider
+.idea/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+
+# VS Code
+.vscode/
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+
+# Test output
+TestResults/
+coverage/
+
+# Logs
+*.log
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
