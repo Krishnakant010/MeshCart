@@ -1,9 +1,21 @@
 ﻿services:
-  
+
   basketdb:
-    image: redis:alpine 
-    ports :
-     - "6379:6379"
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  discountdb:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: Password@1
+      POSTGRES_DB: DiscountDb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   catalogdb:
     image: mongo
     container_name: catalogdb
@@ -28,10 +40,15 @@
       dockerfile: Services/Basket/Basket.API/Dockerfile
     ports:
       - "8003:8080"
-      
-    
+
+  discount.api:
+    image: discount.api
+    build:
+      context: .
+      dockerfile: Services/Discount/Discount.API/Dockerfile
+    ports:
+      - "8004:8080"
+
 volumes:
-  mongo_data: 
-    
-
-
+  mongo_data:
+  postgres_data:

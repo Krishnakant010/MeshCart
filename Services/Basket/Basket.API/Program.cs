@@ -1,8 +1,11 @@
 using System.Reflection;
+using Basket.Application.GrpcService;
 using Basket.Application.Handlers;
+using Basket.Application.Settings;
 using Basket.Core.Repositories;
 using Basket.Infrastructure.Repositories;
 using Basket.Infrastructure.Settings;
+using Discount.Grpc.Protos;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +33,23 @@ builder.Services.Configure<CacheSettings>(
 
 builder.Services.Configure<CacheSettings>(
     builder.Configuration.GetSection("CacheSettings"));
+builder.Services.Configure<GrpcSettings>(
+    builder.Configuration.GetSection("GrpcSettings"));
+
+// Iption registio
+builder.Services.AddGrpcClient<DiscountProtoService.DiscountProtoServiceClient>((sp, cfg) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GrpcSettings>>().Value;
+    cfg.Address = new Uri(settings.DiscountUrl);
+});
+
+//grpc service
+builder.Services.AddScoped<DiscountGrpcService>();
+builder.Services.AddGrpcClient<DiscountProtoService.DiscountProtoServiceClient>((sp, cfg) =>
+{
+    var settings = sp.GetRequiredService<IOptions<GrpcSettings>>().Value;
+    cfg.Address = new Uri(settings.DiscountUrl);
+});
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
