@@ -18,7 +18,10 @@ public record CreateShoppingCartItemDto(
     string ProductId,
     string ProductName,
     string ImageFile,
-    decimal Price,
     int Quantity
+
+)
+{
+    public decimal Price { get; set; }
     
-);
+}
