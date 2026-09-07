@@ -17,6 +17,7 @@ public class CreateShoppingCartHandler(IBasketRepository basketRepository,Discou
             var coupon = await service.GetDiscount(item.ProductName);
             item.Price -= (decimal)coupon.Amount;
         }
+        
         var shoppingCartEntity = request.ToEntity();
         var updatedCart = await basketRepository.UpsertBasket(shoppingCartEntity);
         
