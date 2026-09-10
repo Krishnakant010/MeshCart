@@ -34,7 +34,7 @@ public class OutboxMessageDispatcher(IServiceProvider serviceProvider, ILogger<O
                 {
                     logger.LogError(e,$"Error while sendng  msg {message.Id}");
                 }
-
+                
                 await db.SaveChangesAsync();
                 await Task.Delay(6000, stoppingToken);
             }
