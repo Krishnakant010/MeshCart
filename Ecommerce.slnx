@@ -27,6 +27,9 @@
     <Project Path="Services/Ordering/Ordering.Core/Ordering.Core.csproj" />
     <Project Path="Services/Ordering/Ordering.Infrastructure/Ordering.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/Services/Payment/">
+    <Project Path="Services/Payment/Payment/Payment.csproj" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path="compose.yaml" />
   </Folder>

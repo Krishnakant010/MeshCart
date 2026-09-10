@@ -1,12 +1,20 @@
 ﻿services:
 
+  # =========================
+  # DATABASES
+  # =========================
+
   basketdb:
     image: redis:alpine
+    container_name: basketdb
+    restart: always
     ports:
       - "6379:6379"
 
   orderdb:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: orderdb
+    restart: always
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "StrongPassword123!"
@@ -17,6 +25,8 @@
 
   discountdb:
     image: postgres:17
+    container_name: discountdb
+    restart: always
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: Password@1
@@ -27,13 +37,18 @@
       - postgres_data:/var/lib/postgresql/data
 
   catalogdb:
-    image: mongo
+    image: mongo:latest
     container_name: catalogdb
     restart: always
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+
+
+  # =========================
+  # RABBITMQ
+  # =========================
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -49,11 +64,39 @@
       retries: 10
       start_period: 10s
 
+
+  # =========================
+  # PAYMENT API
+  # =========================
+
+  payment:
+    image: payment
+    build:
+      context: .
+      dockerfile: Services/Payment/Payment/Dockerfile
+    container_name: payment
+    restart: on-failure
+    ports:
+      - "8010:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      EventBusSettings__HostAddress: amqp://guest:guest@rabbitmq:5672
+
+
+  # =========================
+  # ORDERING API
+  # =========================
+
   ordering.api:
     image: ordering.api
     build:
       context: .
       dockerfile: Services/Ordering/Ordering.API/Dockerfile
+    container_name: ordering.api
+    restart: on-failure
     ports:
       - "8006:8080"
     depends_on:
@@ -62,26 +105,43 @@
       orderdb:
         condition: service_started
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__OrderingConnectionString=Server=orderdb,1433;Database=OrderDb;User Id=sa;Password=StrongPassword123!;TrustServerCertificate=True;Encrypt=False
-      - EventBusSettings__HostAddress=amqp://guest:guest@rabbitmq:5672
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__OrderingConnectionString: "Server=orderdb,1433;Database=OrderDb;User Id=sa;Password=StrongPassword123!;TrustServerCertificate=True;Encrypt=False"
+      EventBusSettings__HostAddress: "amqp://guest:guest@rabbitmq:5672"
+
+
+  # =========================
+  # CATALOG API
+  # =========================
 
   catalog.api:
     image: catalog.api
     build:
       context: .
       dockerfile: Services/Catalog/Catalog.API/Dockerfile
+    container_name: catalog.api
+    restart: on-failure
     ports:
       - "8080:8080"
     depends_on:
       catalogdb:
         condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__CatalogConnectionString: "mongodb://catalogdb:27017"
+
+
+  # =========================
+  # BASKET API
+  # =========================
 
   basket.api:
     image: basket.api
     build:
       context: .
       dockerfile: Services/Basket/Basket.API/Dockerfile
+    container_name: basket.api
+    restart: on-failure
     ports:
       - "8003:8080"
     depends_on:
@@ -92,21 +152,36 @@
       discount.api:
         condition: service_started
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - CacheSettings__ConnectionString=basketdb:6379
-      - GrpcSettings__DiscountUrl=http://discount.api:8080
-      - EventBusSettings__HostAddress=amqp://guest:guest@rabbitmq:5672
+      ASPNETCORE_ENVIRONMENT: Development
+      CacheSettings__ConnectionString: "basketdb:6379"
+      GrpcSettings__DiscountUrl: "http://discount.api:8080"
+      EventBusSettings__HostAddress: "amqp://guest:guest@rabbitmq:5672"
+
+
+  # =========================
+  # DISCOUNT API
+  # =========================
 
   discount.api:
     image: discount.api
     build:
       context: .
       dockerfile: Services/Discount/Discount.API/Dockerfile
+    container_name: discount.api
+    restart: on-failure
     ports:
       - "8004:8080"
     depends_on:
       discountdb:
         condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DiscountConnectionString: "Host=discountdb;Port=5432;Database=DiscountDb;Username=admin;Password=Password@1"
+
+
+# =========================
+# VOLUMES
+# =========================
 
 volumes:
   mongo_data:

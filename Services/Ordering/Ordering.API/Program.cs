@@ -19,13 +19,18 @@ builder.Services.AddHostedService<OutboxMessageDispatcher>();
 builder.Services.AddMassTransit((config =>
 {
     config.AddConsumer<BasketOrderingConsumer>();
+    config.AddConsumer<PaymentCompletedConsumer>();
+    config.AddConsumer<PaymentFailedConsumer>();
     config.UsingRabbitMq((ctx, conf) =>
     {
         conf.Host((builder.Configuration["EventBusSettings:HostAddress"]));
-        conf.ReceiveEndpoint(EventBusConstant.BasketCheckoutQueue , c =>
-        {
-            c.ConfigureConsumer<BasketOrderingConsumer>(ctx);
-        });
+        conf.ReceiveEndpoint(EventBusConstant.BasketCheckoutQueue,
+            c => { c.ConfigureConsumer<BasketOrderingConsumer>(ctx); });
+        conf.ReceiveEndpoint(EventBusConstant.PaymentCompletedQueue,
+            c => { c.ConfigureConsumer<PaymentCompletedConsumer>(ctx); });
+        conf.ReceiveEndpoint(EventBusConstant.PaymentFailedQueue,
+            c => { c.ConfigureConsumer<PaymentFailedConsumer>(ctx); });
+        conf.ReceiveEndpoint();
     });
 }));
 var app = builder.Build();
