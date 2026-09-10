@@ -6,6 +6,7 @@ using Basket.Core.Repositories;
 using Basket.Infrastructure.Repositories;
 using Basket.Infrastructure.Settings;
 using Discount.Grpc.Protos;
+using MassTransit;
 using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args);
@@ -56,7 +57,16 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.Configuration =
         builder.Configuration["CacheSettings:ConnectionString"];
 });
+
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddMassTransit(cfg =>
+{
+cfg.UsingRabbitMq((ct, cfg) =>
+{
+    cfg.Host(builder.Configuration["EventBusSettings:HostAddress"]);
+});
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

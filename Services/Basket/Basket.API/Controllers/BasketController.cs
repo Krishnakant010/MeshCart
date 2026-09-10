@@ -75,4 +75,11 @@ public class BasketController(
                 new { message = ex.Message });
         }
     }
+
+    [HttpPost("[action]")]
+    public async Task<IActionResult> Checkout([FromBody] BasketCheckoutDto dto)
+    {
+        await mediator.Send(new BasketCheckoutCommand(dto));
+        return Accepted();
+    }
 }

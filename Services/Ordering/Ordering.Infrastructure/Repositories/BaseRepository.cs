@@ -15,7 +15,7 @@ public class BaseRepository<T>(OrderContext context):IAsyncRepository<T> where T
 
     public async Task<IReadOnlyList<T>> GetAllAsync(Expression<Func<T, bool>> predicate)
     {
-        return await context.Set<T>().Where(predicate).ToListAsync();
+        return await context.Set<T>().AsNoTracking().Where(predicate).ToListAsync();
     }
 
     public async Task<T> GetByIdAsync(int id) => await context.Set<T>().FindAsync(id);
@@ -29,7 +29,9 @@ public class BaseRepository<T>(OrderContext context):IAsyncRepository<T> where T
 
     public async Task UpdateAsync(T entity)
     {
-        throw new NotImplementedException();
+        context.Entry(entity).State = EntityState.Modified;
+        await context.SaveChangesAsync();
+        
     }
 
     public async Task DeleteAsync(T entity)

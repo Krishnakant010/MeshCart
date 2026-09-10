@@ -1,20 +1,46 @@
+using EventBus.Messages.Common;
+using MassTransit;
+using Ordering.API.Extensions;
+using Ordering.Application.EventBusConsumer;
+using Ordering.Infrastructure.Data;
+using Ordering.Infrastructure.Dispatcher;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddOrderingServices(builder.Configuration);
+
+builder.Services.AddHostedService<OutboxMessageDispatcher>();
+
+builder.Services.AddMassTransit((config =>
+{
+    config.AddConsumer<BasketOrderingConsumer>();
+    config.UsingRabbitMq((ctx, conf) =>
+    {
+        conf.Host((builder.Configuration["EventBusSettings:HostAddress"]));
+        conf.ReceiveEndpoint(EventBusConstant.BasketCheckoutQueue , c =>
+        {
+            c.ConfigureConsumer<BasketOrderingConsumer>(ctx);
+        });
+    });
+}));
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.MigrateDatabase<OrderContext>((context, services) =>
 {
-    app.MapOpenApi();
-}
+    var logger = services.GetRequiredService<ILogger<OrderContextSeed>>();
+    OrderContextSeed.SeedAsync(context, logger).Wait();
+});
 
-app.UseHttpsRedirection();
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// No HTTPS inside the container for now
+// app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
