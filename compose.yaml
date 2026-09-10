@@ -5,6 +5,16 @@
     ports:
       - "6379:6379"
 
+  orderdb:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "StrongPassword123!"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+
   discountdb:
     image: postgres:17
     environment:
@@ -25,6 +35,37 @@
     volumes:
       - mongo_data:/data/db
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  ordering.api:
+    image: ordering.api
+    build:
+      context: .
+      dockerfile: Services/Ordering/Ordering.API/Dockerfile
+    ports:
+      - "8006:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      orderdb:
+        condition: service_started
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__OrderingConnectionString=Server=orderdb,1433;Database=OrderDb;User Id=sa;Password=StrongPassword123!;TrustServerCertificate=True;Encrypt=False
+      - EventBusSettings__HostAddress=amqp://guest:guest@rabbitmq:5672
+
   catalog.api:
     image: catalog.api
     build:
@@ -32,6 +73,9 @@
       dockerfile: Services/Catalog/Catalog.API/Dockerfile
     ports:
       - "8080:8080"
+    depends_on:
+      catalogdb:
+        condition: service_started
 
   basket.api:
     image: basket.api
@@ -40,6 +84,18 @@
       dockerfile: Services/Basket/Basket.API/Dockerfile
     ports:
       - "8003:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      basketdb:
+        condition: service_started
+      discount.api:
+        condition: service_started
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - CacheSettings__ConnectionString=basketdb:6379
+      - GrpcSettings__DiscountUrl=http://discount.api:8080
+      - EventBusSettings__HostAddress=amqp://guest:guest@rabbitmq:5672
 
   discount.api:
     image: discount.api
@@ -48,7 +104,11 @@
       dockerfile: Services/Discount/Discount.API/Dockerfile
     ports:
       - "8004:8080"
+    depends_on:
+      discountdb:
+        condition: service_started
 
 volumes:
   mongo_data:
   postgres_data:
+  sqlserver_data:
