@@ -47,7 +47,6 @@ app.UseSwaggerUI();
 // No HTTPS inside the container for now
 // app.UseHttpsRedirection();
 
-app.UseAuthorization();
 
 app.MapControllers();
 

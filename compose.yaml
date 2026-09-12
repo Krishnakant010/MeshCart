@@ -10,6 +10,7 @@
     restart: always
     ports:
       - "6379:6379"
+    mem_limit: 128m
 
   orderdb:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -18,10 +19,26 @@
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "StrongPassword123!"
+      MSSQL_MEMORY_LIMIT_MB: "1024"   # caps SQL Server's internal memory usage (default is 80% of host RAM)
     ports:
       - "1433:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql
+    mem_limit: 1536m   # a bit above MSSQL_MEMORY_LIMIT_MB to leave room for OS overhead
+
+  identitydb:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: identitydb
+    restart: always
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "StrongPassword123!"
+      MSSQL_MEMORY_LIMIT_MB: "1024"
+    ports:
+      - "1434:1433"
+    volumes:
+      - identity_sqlserver_data:/var/opt/mssql
+    mem_limit: 1536m
 
   discountdb:
     image: postgres:17
@@ -35,15 +52,18 @@
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    mem_limit: 256m
 
   catalogdb:
     image: mongo:latest
     container_name: catalogdb
     restart: always
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.5"]   # default cache is ~50% of host RAM, way oversized for dev
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    mem_limit: 512m
 
 
   # =========================
@@ -63,6 +83,7 @@
       timeout: 5s
       retries: 10
       start_period: 10s
+    mem_limit: 256m
 
 
   # =========================
@@ -83,7 +104,8 @@
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      EventBusSettings__HostAddress: amqp://guest:guest@rabbitmq:5672
+      EventBusSettings__HostAddress: "amqp://guest:guest@rabbitmq:5672"
+    mem_limit: 350m
 
 
   # =========================
@@ -108,6 +130,7 @@
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__OrderingConnectionString: "Server=orderdb,1433;Database=OrderDb;User Id=sa;Password=StrongPassword123!;TrustServerCertificate=True;Encrypt=False"
       EventBusSettings__HostAddress: "amqp://guest:guest@rabbitmq:5672"
+    mem_limit: 350m
 
 
   # =========================
@@ -129,6 +152,7 @@
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__CatalogConnectionString: "mongodb://catalogdb:27017"
+    mem_limit: 350m
 
 
   # =========================
@@ -156,6 +180,7 @@
       CacheSettings__ConnectionString: "basketdb:6379"
       GrpcSettings__DiscountUrl: "http://discount.api:8080"
       EventBusSettings__HostAddress: "amqp://guest:guest@rabbitmq:5672"
+    mem_limit: 350m
 
 
   # =========================
@@ -177,6 +202,32 @@
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DiscountConnectionString: "Host=discountdb;Port=5432;Database=DiscountDb;Username=admin;Password=Password@1"
+    mem_limit: 350m
+
+
+  # =========================
+  # IDENTITY API
+  # =========================
+
+  identity:
+    image: identity
+    build:
+      context: .
+      dockerfile: Services/Identity/Identity/Dockerfile
+    container_name: identity
+    restart: on-failure
+    ports:
+      - "8007:8080"
+    depends_on:
+      identitydb:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__IdentityConnection: "Server=identitydb,1433;Database=IdentityDb;User Id=sa;Password=StrongPassword123!;TrustServerCertificate=True;Encrypt=False"
+      EventBusSettings__HostAddress: "amqp://guest:guest@rabbitmq:5672"
+    mem_limit: 350m
 
 
 # =========================
@@ -187,3 +238,4 @@ volumes:
   mongo_data:
   postgres_data:
   sqlserver_data:
+  identity_sqlserver_data:
